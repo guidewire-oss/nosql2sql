@@ -1,0 +1,63 @@
+version: '3.8'
+services:
+  dynstream-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dynstream-pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_DISABLE_POSTFIX: "True"
+      MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      dynstream-postgres:
+        condition: service_healthy
+
+  dynstream-localstack:
+    image: artifactory.guidewire.com/hub-docker-remote/localstack/localstack
+    restart: unless-stopped
+    volumes:
+      - "${HOME}/.docker/run:/var/run"
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+      - "4510-4559:4510-4559"  # external services port range
+    environment:
+      - SERVICES=s3,dynamodb,dynamodbstreams
+      - EAGER_SERVICE_LOADING=1
+      - LOCALSTACK_HOST=localstack
+      - HOSTNAME=localstack
+      - DEBUG=0
+      - FORCE_NONINTERACTIVE=true
+
+  dynamodb-admin:
+    image: artifactory.guidewire.com/hub-docker-remote/aaronshaf/dynamodb-admin:latest
+    container_name: dynamodb-admin
+    restart: unless-stopped
+    ports:
+      - "8999:8001"
+    environment:
+      DYNAMO_ENDPOINT: http://localstack:4566/
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: teste
+    depends_on:
+      dynstream-localstack:
+        condition: service_healthy

@@ -1,0 +1,54 @@
+plugins {
+  id 'java'
+  id 'org.springframework.boot' version '3.3.4'
+  id 'io.spring.dependency-management' version '1.1.6'
+  id "io.freefair.lombok" version "8.10.2"
+}
+
+group = 'com.guidewire.ccs.dss'
+version = '0.0.1-SNAPSHOT'
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(17)
+  }
+}
+
+configurations {
+  compileOnly {
+    extendsFrom annotationProcessor
+  }
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencyManagement {
+  imports {
+    mavenBom("io.awspring.cloud:spring-cloud-aws-dependencies:3.1.0")
+  }
+}
+dependencies {
+  testImplementation 'org.apache.commons:commons-lang3'
+  implementation 'org.springframework.boot:spring-boot-starter-web'
+  implementation 'org.springframework.boot:spring-boot-starter-actuator'
+  implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+  implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3'
+  implementation 'io.awspring.cloud:spring-cloud-aws-starter-dynamodb'
+
+  runtimeOnly 'org.postgresql:postgresql'
+  annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  implementation 'com.amazonaws:aws-java-sdk-dynamodb:[1.12.300,)'
+  implementation 'com.amazon.ion:ion-java:1.11.9'
+  implementation 'com.google.code.gson:gson:[2.11,)'
+  implementation 'org.springframework:spring-jdbc:6.1.13'
+  implementation 'org.postgresql:postgresql:42.7.4'
+  implementation 'org.awaitility:awaitility:3.0.0'
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}

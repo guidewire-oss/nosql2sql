@@ -1,6 +1,5 @@
-version: '3.8'
 services:
-  dynstream-postgres:
+  postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     shm_size: 128mb
@@ -16,7 +15,7 @@ services:
       timeout: 5s
       retries: 5
 
-  dynstream-pgadmin:
+  pgadmin:
     image: dpage/pgadmin4:8
     restart: unless-stopped
     environment:
@@ -28,11 +27,11 @@ services:
     ports:
       - "5050:80"
     depends_on:
-      dynstream-postgres:
+      postgres:
         condition: service_healthy
 
-  dynstream-localstack:
-    image: artifactory.guidewire.com/hub-docker-remote/localstack/localstack
+  localstack:
+    image: localstack/localstack
     restart: unless-stopped
     volumes:
       - "${HOME}/.docker/run:/var/run"
@@ -48,7 +47,7 @@ services:
       - FORCE_NONINTERACTIVE=true
 
   dynamodb-admin:
-    image: artifactory.guidewire.com/hub-docker-remote/aaronshaf/dynamodb-admin:latest
+    image: aaronshaf/dynamodb-admin:latest
     container_name: dynamodb-admin
     restart: unless-stopped
     ports:
@@ -59,5 +58,5 @@ services:
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: teste
     depends_on:
-      dynstream-localstack:
+      localstack:
         condition: service_healthy

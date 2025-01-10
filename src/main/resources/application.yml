@@ -1,33 +1,35 @@
 spring:
+
   application:
     name: NoSQL2SQL
   datasource:
     username: postgres
     password: password
     url: jdbc:postgresql://localhost:5432/postgres
-  cloud:
-    aws:
-      region:
-        static: "us-east-1"
-      credentials:
-        access-key: "test"
-        secret-key: "test"
-      s3:
-        endpoint: "http://s3.localhost.localstack.cloud:4566"
-      dynamodb:
-        endpoint: "http://localhost:4566"
+#  cloud:
+#    aws:
+#      region:
+#        static: "us-east-1"
+#      credentials:
+#        access-key: "test"
+#        secret-key: "test"
+#      s3:
+#        endpoint: "http://s3.localhost.localstack.cloud:4566"
+#      dynamodb:
+#        endpoint: "http://localhost:4566"
 logging:
   level:
     root: info
     com.guidewire: debug
 
-aws:
-  bucket-name: s3-test-bucket
-  optional-prefix: nosql2sql/
-  table-name: test-table
 mapping:
-  discriminator-attribute-name: recordType
-  recreate-tables: true
-  #  table-name:
-  partition-key-name: pk
-  sort-key-name: sk
+  s3:
+    bucket-name: tenant-brilliant-atlas-data-dev
+    prefix:
+  dynamodb:
+    dynamo-table-name: tenant-brilliant-prod-metadata-data
+    discriminator-attribute-name: recordType
+    partition-key-name: pk
+    sort-key-name: sk
+  postgresql:
+    recreate-tables: true

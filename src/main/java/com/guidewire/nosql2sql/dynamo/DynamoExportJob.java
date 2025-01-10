@@ -1,5 +1,6 @@
 package com.guidewire.nosql2sql.dynamo;
 
+import com.guidewire.nosql2sql.postgres.MappingConfiguration;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
@@ -24,7 +25,7 @@ import software.amazon.awssdk.services.dynamodb.model.ExportTableToPointInTimeRe
 @Setter
 public class DynamoExportJob {
 
-  private final AwsProperties awsProperties;
+  private final MappingConfiguration mappingConfiguration;
   private final DynamoDbClient dynamoDbClient;
   private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor();
   private String s3ExportArn;
@@ -52,7 +53,8 @@ public class DynamoExportJob {
 
     var exportRequest = ExportTableToPointInTimeRequest.builder()
         .tableArn(tableArn)
-        .s3Bucket(awsProperties.getBucketName())
+        .s3Bucket(mappingConfiguration.getS3().getBucketName())
+        .s3Prefix(tableName)
         .exportFormat(ExportFormat.ION)
         .exportTime(Instant.now())
         .build();

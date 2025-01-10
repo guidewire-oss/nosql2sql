@@ -5,22 +5,26 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.guidewire.nosql2sql.dynamo.AwsProperties;
 import com.guidewire.nosql2sql.dynamo.DynamoExportJob;
+import com.guidewire.nosql2sql.postgres.MappingConfiguration;
 import com.guidewire.nosql2sql.postgres.PostgresManager;
 import com.guidewire.nosql2sql.postgres.PostgresManager.ApplyType;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.ActiveProfiles;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
@@ -36,11 +40,11 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ActiveProfiles("test")
 class ApplicationTests {
 
   private final String bucketName = RandomStringUtils.randomAlphabetic(10).toLowerCase();
   @Autowired
-  AwsProperties awsProperties;
   DynamoExportJob dynamoExportJob;
   @Autowired
   private PostgresManager postgresManager;
@@ -52,6 +56,13 @@ class ApplicationTests {
   private S3Client s3Client;
   @Autowired
   private DynamoDbClient dynamoDbClient;
+  @Autowired
+  private DataLoader dataLoader;
+  @Autowired
+  private TestProperties testProperties;
+  @Qualifier("mappingConfiguration")
+  @Autowired
+  private MappingConfiguration mappingConfiguration;
 
   @BeforeAll
   void setup() {
@@ -62,7 +73,9 @@ class ApplicationTests {
         .when(spyDynamoDbClient)
         .exportTableToPointInTime(any(ExportTableToPointInTimeRequest.class));
 
-    dynamoExportJob = new DynamoExportJob(awsProperties, spyDynamoDbClient);
+    dynamoExportJob = new DynamoExportJob(mappingConfiguration, spyDynamoDbClient);
+
+    dataLoader.loadAllToDynamo();
   }
 
   private ExportTableToPointInTimeResponse mockExport() {
@@ -75,6 +88,34 @@ class ApplicationTests {
             .exportStatus(ExportStatus.COMPLETED)
             .build())
         .build();
+  }
+
+  //  @Test
+  // doesn't work with localstack
+  void pointInTimeExport() {
+    var exportJon = new DynamoExportJob(mappingConfiguration, dynamoDbClient);
+    testProperties.getTableNames().forEach(tableName -> {
+      try {
+        exportJon.startExport(tableName).handle((result, err) -> {
+          if (err != null) {
+            throw new RuntimeException(err);
+          }
+          return result;
+        }).get(1, TimeUnit.MINUTES);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+      } catch (TimeoutException e) {
+        throw new RuntimeException(e);
+      }
+    });
+
+  }
+
+  @Test
+  void importSingleTable() {
+
   }
 
   @Test

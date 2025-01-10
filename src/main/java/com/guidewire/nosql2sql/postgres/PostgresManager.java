@@ -6,20 +6,23 @@ import com.amazonaws.services.dynamodbv2.model.Record;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.guidewire.nosql2sql.dynamo.AwsProperties;
 import com.guidewire.nosql2sql.postgres.TableMapping.ColumnMapping;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -33,7 +36,6 @@ public class PostgresManager {
 
   private static final String SQL_DEBUG_MESSAGE = "sql = {}";
 
-  private final AwsProperties awsProperties;
   private final S3Client s3Client;
   private final JdbcClient jdbcClient;
   private final TableMapperManager tableMapperManager = new TableMapperManager();
@@ -66,10 +68,11 @@ public class PostgresManager {
    */
   public void applyToPostgres(JsonNode jsonNode, ApplyType applyType) {
 
-    var tableName = Optional.ofNullable(mappingConfiguration.getDiscriminatorAttributeName())
+    var tableName = Optional.ofNullable(mappingConfiguration.getDynamodb().getDiscriminatorAttributeName())
         .map(attr -> jsonNode.get(attr).asText())
         .map(TableMapperManager::escapeTableName)
-        .orElse(mappingConfiguration.getTableName());
+        // when discriminator attribute is not used, postgresql table name will match dynamo
+        .orElse(mappingConfiguration.getDynamodb().getDynamoTableName());
 
     var tableMapping = Optional.ofNullable(tableMapperManager.getTableMapping(tableName))
         .map(tm -> maybeAddColumns(tm, jsonNode))
@@ -83,9 +86,9 @@ public class PostgresManager {
 
     JdbcClient.StatementSpec spec = null;
     var sql = "";
-    var hasSortKey = mappingConfiguration.getSortKeyName().isPresent();
-    var pk = mappingConfiguration.getPartitionKeyName();
-    var sk = mappingConfiguration.getSortKeyName().orElse("");
+    var hasSortKey = mappingConfiguration.getDynamodb().getSortKeyName().isPresent();
+    var pk = mappingConfiguration.getDynamodb().getPartitionKeyName();
+    var sk = mappingConfiguration.getDynamodb().getSortKeyName().orElse("");
     var whereUniqueSql = " WHERE " + pk + " = " + "'" + columns.get(pk) + "'" + (hasSortKey ? " AND " + sk + " = " + "'" + columns.get(sk) + "'" : "");
     switch (applyType) {
       case INSERT -> {
@@ -152,7 +155,7 @@ public class PostgresManager {
   }
 
   public TableMapping createTable(TableMapping tableMapping) {
-    if (mappingConfiguration.isRecreateTables()) {
+    if (mappingConfiguration.getPostgresql().isRecreateTables()) {
       dropTable(tableMapping.getTableName());
     }
     log.info("Creating table {}", tableMapping);
@@ -173,6 +176,100 @@ public class PostgresManager {
     log.debug(SQL_DEBUG_MESSAGE, sql);
     jdbcClient.sql(sql).update();
   }
+
+  @SneakyThrows
+  public Stream<JsonNode> loadFromS3(String bucketName, String s3Prefix) {
+    final String s3ExportDataPrefix = mappingConfiguration.getS3().getPrefix().orElse("") + mappingConfiguration.getDynamodb().getDynamoTableName();
+    log.info("loading from s3://{}/{}", bucketName, s3ExportDataPrefix);
+    if (s3Client.listObjectsV2(b -> b.bucket(bucketName).prefix(s3ExportDataPrefix)).contents().isEmpty()) {
+      throw new IllegalArgumentException("No s3 export provided");
+    }
+
+    var readerBuilder = IonSystemBuilder.standard().getReaderBuilder();
+
+    var ionObjects = s3Client.listObjectsV2(b -> b.bucket(bucketName).prefix(s3ExportDataPrefix))
+        .contents();
+
+    return ionObjects.stream()
+        .filter(o -> o.key().endsWith("ion.gz"))
+        .flatMap(o -> {
+          log.debug("Adding to {} to stream", o.key());
+          var inputStream = s3Client.getObjectAsBytes(b -> b.bucket(bucketName).key(o.key())).asInputStream();
+          GZIPInputStream zipStream = null;
+          try {
+            zipStream = new GZIPInputStream(inputStream);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+          var reader = readerBuilder.build(zipStream);
+          return Stream.generate(() -> {
+                try {
+                  if (reader.next() != null) {
+                    var sb = new StringBuilder();
+                    try (var writer = IonTextWriterBuilder.json().build(sb)) {
+                      writer.writeValue(reader);
+                      return objectMapper.readTree(sb.toString()).get("Item");
+                    }
+                  } else {
+                    log.debug("No more values to read for key {}", o.key());
+                    return null;
+                  }
+                } catch (Exception e) {
+                  log.error("Failed to read from s3 export on key {}", o.key(), e);
+                  return null;
+                }
+              })
+              .takeWhile(Objects::nonNull);
+        });
+
+  }
+
+//  public Stream<JsonNode> loadFromS3(String bucketName, String s3Prefix) {
+//    final String s3ExportDataPrefix = awsProperties.getOptionalPrefix().orElse("") + mappingConfiguration.getDynamoTableName();
+//    log.info("loading from s3://{}/{}", bucketName, s3ExportDataPrefix);
+//    if (s3Client.listObjectsV2(b -> b.bucket(bucketName).prefix(s3ExportDataPrefix)).contents().isEmpty()) {
+//      throw new IllegalArgumentException("No s3 export provided");
+//    }
+//
+//    var readerBuilder = IonSystemBuilder.standard().getReaderBuilder();
+//
+//    var ionObjects = s3Client.listObjectsV2(b -> b.bucket(bucketName).prefix(s3ExportDataPrefix))
+//        .contents();
+//
+//    return ionObjects.stream()
+//        .filter(o -> o.key().endsWith("ion.gz"))
+//        .flatMap(o -> {
+//          log.debug("Adding to {} to stream", o.key());
+//          try (var responseStream = s3Client.getObjectAsBytes(b -> b.bucket(bucketName).key(o.key())).asInputStream();
+//              var zipStream = new GZIPInputStream(responseStream);
+//              var ionReader = readerBuilder.build(zipStream)) {
+//            return Stream.generate(() -> {
+//                  try {
+//                    if (ionReader.next() != null) {
+//                      log.debug("Current type: {}", ionReader.getType());
+//                      var sw = new StringWriter();
+//                      try(var writer = IonTextWriterBuilder.json().build(sw)) {
+//                        writer.writeValue(ionReader);
+//                        log.debug("Successfully read and converted ION to JSON for key: {}", o.key());
+//                        return objectMapper.readTree(sw.toString()).get("Item");
+//                      }
+//                    } else {
+//                      log.debug("No more values to read for key: {}", o.key());
+//                      return null;
+//                    }
+//                  } catch (Exception e) {
+//                    log.error("Failed to read from s3 export for key {}",o.key(), e);
+//                    return null;
+//                  }
+//                })
+//                .takeWhile(Objects::nonNull);
+//          } catch (Exception e) {
+//            log.error("Failed to read from s3 export for key {}",o.key(), e);
+//            return Stream.empty();
+//          }
+//        });
+//
+//  }
 
   public List<JsonNode> convertS3ExportToJson(String bucketName, String s3Prefix) {
     log.info("Converting ION to JSON...");

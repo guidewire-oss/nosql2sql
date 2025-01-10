@@ -6,6 +6,8 @@ import com.guidewire.nosql2sql.dynamo.DynamoSyncingManager;
 import java.util.List;
 import java.util.concurrent.Future;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.time.StopWatch;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
+@Slf4j
 public class DynamoSyncController {
 
   private final DynamoExportJob dynamoExportJob;
@@ -33,4 +36,17 @@ public class DynamoSyncController {
     exporter = dynamoExportJob.startExport(tableName);
     return ResponseEntity.ok().build();
   }
+
+  @PostMapping("/api/import")
+  public ResponseEntity<?> importTable() {
+    log.info("starting import to postgres");
+
+    var sw = StopWatch.createStarted();
+    dynamoSyncingManager.importFromS3();
+
+    sw.stop();
+    log.info("import completed in {}", sw.formatTime());
+    return ResponseEntity.ok().build();
+  }
+
 }

@@ -5,6 +5,10 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * Configuration class for mapping settings between DynamoDB and PostgreSQL.
+ * This class holds the configuration properties required for the mapping process.
+ */
 @Component
 @ConfigurationProperties(prefix = "mapping")
 @Data
@@ -15,7 +19,8 @@ public class MappingConfiguration {
   private S3 s3;
 
   /**
-   * Discriminator used to identify different record types. Each record type will be imported into a different table in postgresql. This should only be set when the table being exported uses a single table design.
+   * Discriminator used to identify different record types. Each record type will be imported into a different table in PostgreSQL.
+   * This should only be set when the table being exported uses a single table design.
    */
   @Deprecated
   private String discriminatorAttributeName;
@@ -31,17 +36,17 @@ public class MappingConfiguration {
   private String sortKeyName;
 
   /**
-   * not used
+   * Not used
    */
   @Deprecated
   private String tableName;
   /**
-   * Name of the dynamo table to export
+   * Name of the DynamoDB table to export
    */
   @Deprecated
   private String dynamoTableName;
   /**
-   * If true, the tables in postgres will be recreated.
+   * If true, the tables in PostgreSQL will be recreated.
    */
   @Deprecated
   private boolean recreateTables = false;
@@ -54,7 +59,7 @@ public class MappingConfiguration {
   public static class Postgresql {
 
     /**
-     * If true, the tables in postgres will be recreated.
+     * If true, the tables in PostgreSQL will be recreated.
      */
     private boolean recreateTables = false;
 
@@ -68,7 +73,7 @@ public class MappingConfiguration {
      */
     private String bucketName;
     /**
-     * Optional prefix within the s3 bucket
+     * Optional prefix within the S3 bucket
      */
     private Optional<String> prefix;
 
@@ -78,7 +83,8 @@ public class MappingConfiguration {
   public static class Dynamodb {
 
     /**
-     * Discriminator used to identify different record types. Each record type will be imported into a different table in postgresql. This should only be set when the table being exported uses a single table design.
+     * Discriminator used to identify different record types. Each record type will be imported into a different table in PostgreSQL.
+     * This should only be set when the table being exported uses a single table design.
      */
     private String discriminatorAttributeName;
     /**
@@ -90,7 +96,7 @@ public class MappingConfiguration {
      */
     private Optional<String> sortKeyName;
     /**
-     * Name of the dynamo table to export
+     * Name of the DynamoDB table to export
      */
     private String dynamoTableName;
 

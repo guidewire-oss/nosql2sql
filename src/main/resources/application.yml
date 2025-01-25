@@ -1,5 +1,4 @@
 spring:
-
   application:
     name: NoSQL2SQL
   datasource:
@@ -33,3 +32,8 @@ mapping:
     sort-key-name: sk
   postgresql:
     recreate-tables: true
+server:
+  port: 8085
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

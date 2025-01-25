@@ -29,6 +29,9 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+/**
+ * Manages the process of applying AWS DynamoDB records to a PostgreSQL database.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -42,6 +45,10 @@ public class PostgresManager {
   private final MappingConfiguration mappingConfiguration;
   private final ObjectMapper objectMapper;
 
+  /**
+   * Applies a single AWS DynamoDB record to the PostgreSQL database.
+   * @param rec The DynamoDB record to apply.
+   */
   public void applyAwsRecord(Record rec) {
     var jsonOut = JsonNodeFactory.instance.objectNode();
     var image = Optional.ofNullable(rec.getDynamodb().getNewImage()).or(() -> Optional.ofNullable(rec.getDynamodb().getOldImage()));
@@ -62,9 +69,9 @@ public class PostgresManager {
   }
 
   /**
-   * Applies a single record from dynamo to the postgres database
-   *
-   * @param jsonNode dynamo record
+   * Applies a single record from DynamoDB to the PostgreSQL database.
+   * @param jsonNode The DynamoDB record in JSON format.
+   * @param applyType The type of operation to apply (INSERT, UPDATE, DELETE).
    */
   public void applyToPostgres(JsonNode jsonNode, ApplyType applyType) {
 
@@ -118,7 +125,7 @@ public class PostgresManager {
   }
 
   private int insertData(Map<String, Object> columns, TableMapping tableMapping, String sql, String tableName, JdbcClient.StatementSpec spec) {
-    var columnsNames = columns.keySet().stream().collect(Collectors.joining(","));
+    var columnsNames = String.join(",", columns.keySet());
     var bindVariables = columns.keySet().stream().map(key -> ":" + key + (tableMapping.getColumn(key).getColumnType() == ColumnDataType.JSON ? "::jsonb" : "")).collect(Collectors.joining(","));
 
     // insert into postgres
@@ -195,7 +202,7 @@ public class PostgresManager {
         .flatMap(o -> {
           log.debug("Adding to {} to stream", o.key());
           var inputStream = s3Client.getObjectAsBytes(b -> b.bucket(bucketName).key(o.key())).asInputStream();
-          GZIPInputStream zipStream = null;
+          GZIPInputStream zipStream;
           try {
             zipStream = new GZIPInputStream(inputStream);
           } catch (IOException e) {

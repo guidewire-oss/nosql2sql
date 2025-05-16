@@ -48,10 +48,10 @@ services:
 
   dynamodb-admin:
     image: aaronshaf/dynamodb-admin:latest
-    container_name: dynamodb-admin
+    container_name: dynamodb-admin-nosql2sql
     restart: unless-stopped
     ports:
-      - "8999:8001"
+      - "5999:8001"
     environment:
       DYNAMO_ENDPOINT: http://localstack:4566/
       AWS_REGION: us-east-1

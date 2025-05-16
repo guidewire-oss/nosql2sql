@@ -54,11 +54,7 @@ public class DataLoader {
 
   // Helper method to extract the table name from the filename
   private String extractTableName(String fullname) {
-    String[] parts = fullname.split("-", 2);
-    if (parts.length != 2) {
-      throw new IllegalArgumentException("Invalid file name format: " + fullname);
-    }
-    return parts[1].replace(".csv", "").trim();
+    return fullname.replace(".csv", "").trim();
   }
 
   private void loadTable(Path file, String tableName) throws IOException {

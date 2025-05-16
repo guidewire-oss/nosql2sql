@@ -12,5 +12,5 @@ spring:
         endpoint: "http://localhost:4566"
 
 testdata:
-  location: src/test/resources/data
+  location: src/test/resources/data/dynamo
   tableNames: pets, single_table, specialities, types, vet_specialities, vets, visits

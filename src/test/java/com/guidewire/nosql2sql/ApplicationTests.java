@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,6 +39,7 @@ import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.s3.S3Client;
 
+@Slf4j
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ActiveProfiles("test")
@@ -67,19 +69,11 @@ class ApplicationTests {
   @BeforeAll
   void setup() {
     s3Client.createBucket(b -> b.bucket(bucketName));
-
-    DynamoDbClient spyDynamoDbClient = spy(dynamoDbClient);
-    doReturn(mockExport())
-        .when(spyDynamoDbClient)
-        .exportTableToPointInTime(any(ExportTableToPointInTimeRequest.class));
-
-    dynamoExportJob = new DynamoExportJob(mappingConfiguration, spyDynamoDbClient);
-
     dataLoader.loadAllToDynamo();
   }
 
   private ExportTableToPointInTimeResponse mockExport() {
-    var file = new File("src/test/resources/output.ion.gz");
+    var file = new File("src/test/resources/data/s3/output.ion.gz");
     s3Client.putObject(b -> b.bucket(bucketName).key("AWSDynamoDB/data/output.ion.gz"), RequestBody.fromFile(file));
 
     return ExportTableToPointInTimeResponse.builder()
@@ -163,6 +157,13 @@ class ApplicationTests {
 
   @Test
   void testS3Conversion() throws Exception {
+    DynamoDbClient spyDynamoDbClient = spy(dynamoDbClient);
+    doReturn(mockExport())
+        .when(spyDynamoDbClient)
+        .exportTableToPointInTime(any(ExportTableToPointInTimeRequest.class));
+
+    dynamoExportJob = new DynamoExportJob(mappingConfiguration, spyDynamoDbClient);
+
     var dynamoTableName = RandomStringUtils.randomAlphabetic(10).toLowerCase();
 
     dynamoDbClient.createTable(b ->

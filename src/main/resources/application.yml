@@ -2,9 +2,9 @@ spring:
   application:
     name: NoSQL2SQL
   datasource:
-    username: postgres
-    password: password
-    url: jdbc:postgresql://localhost:5432/postgres
+    username: ${DATASOURCE_USERNAME:postgres}
+    password: ${DATASOURCE_PASSWORD:password}
+    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
 #  cloud:
 #    aws:
 #      region:
@@ -23,10 +23,10 @@ logging:
 
 mapping:
   s3:
-    bucket-name: tenant-brilliant-atlas-data-dev
+    bucket-name: ${EXPORT_BUCKET_NAME}
     prefix:
   dynamodb:
-    dynamo-table-name: tenant-brilliant-prod-metadata-data
+    dynamo-table-name: ${DYNAMO_TABLE_NAME}
     discriminator-attribute-name: recordType
     partition-key-name: pk
     sort-key-name: sk

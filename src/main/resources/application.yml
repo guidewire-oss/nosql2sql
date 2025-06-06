@@ -16,6 +16,11 @@ spring:
 #        endpoint: "http://s3.localhost.localstack.cloud:4566"
 #      dynamodb:
 #        endpoint: "http://localhost:4566"
+
+runtime:
+  # mode may either be "cli" or "service"
+  mode: service
+
 logging:
   level:
     root: info

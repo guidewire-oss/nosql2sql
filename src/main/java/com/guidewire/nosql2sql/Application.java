@@ -14,6 +14,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 public class Application {
 
   public static void main(String[] args) {
-    SpringApplication.run(Application.class, args);
+    var context = SpringApplication.run(Application.class, args);
+    String mode = context.getEnvironment().getProperty("runtime.mode", "service");
+    if ("cli".equalsIgnoreCase(mode)) {
+      // CLI command would have already run and completed. Just exit.
+      System.exit(SpringApplication.exit(context, () -> 0));
+    } else {
+      log.info("Running in Service mode");
+    }
   }
 }
